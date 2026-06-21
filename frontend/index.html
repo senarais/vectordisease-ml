@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Disease Prediction</title>
+    <!-- Import Montserrat Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Essential Styling */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #fafafa;
+            color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 360px;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 0;
+            margin-bottom: 30px;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 16px;
+            border: 1px solid #eaeaea;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        input:focus {
+            border-color: #111;
+        }
+        button {
+            width: 100%;
+            padding: 16px;
+            background-color: #111;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-top: 8px;
+        }
+        button:hover {
+            background-color: #333;
+        }
+        button:disabled {
+            background-color: #888;
+            cursor: not-allowed;
+        }
+        #result-container {
+            margin-top: 25px;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .score {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .status {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Vector Disease Prediction</h1>
+        <form id="predictionForm">
+            <!-- Placeholders only, no labels -->
+            <input type="number" id="temp" placeholder="Temperature (°C)" step="0.1" required>
+            <input type="number" id="precip" placeholder="Precipitation (mm)" step="0.1" required>
+            <input type="number" id="extreme" placeholder="Extreme Weather (Events)" step="1" required>
+            <input type="number" id="heat" placeholder="Heat Wave (Days)" step="1" required>
+            
+            <button type="submit" id="submitBtn">Predict</button>
+        </form>
+
+        <div id="result-container">
+            <!-- Hasil API akan muncul di sini -->
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submitBtn');
+            const resultContainer = document.getElementById('result-container');
+            
+            // Loading state
+            btn.innerText = 'Predicting...';
+            btn.disabled = true;
+            resultContainer.innerHTML = '';
+
+            // Construct payload
+            const payload = {
+                temperature_celsius: parseFloat(document.getElementById('temp').value),
+                precipitation_mm: parseFloat(document.getElementById('precip').value),
+                extreme_weather_events: parseFloat(document.getElementById('extreme').value),
+                heat_wave_days: parseFloat(document.getElementById('heat').value)
+            };
+
+            try {
+                // Fetch to relative URL (same-origin policy bypasses CORS)
+                const response = await fetch('/api/predict-risk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const resData = await response.json();
+                
+                if (response.ok && resData.success) {
+                    const score = resData.data.predicted_risk_score;
+                    const status = resData.data.warning_status;
+                    
+                    // Render result
+                    resultContainer.innerHTML = `
+                        <div class="score">${score}</div>
+                        <div class="status">${status}</div>
+                    `;
+                } else {
+                    resultContainer.innerHTML = `<div class="status" style="color: red;">Error: Failed to fetch prediction.</div>`;
+                }
+            } catch (error) {
+                resultContainer.innerHTML = `<div class="status" style="color: red;">Server Error.</div>`;
+            } finally {
+                // Reset button state
+                btn.innerText = 'Predict';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

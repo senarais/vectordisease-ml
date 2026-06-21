@@ -1,36 +1,42 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import os
 
-# Inisialisasi Aplikasi
 app = FastAPI(
     title="Vector Disease Early Warning API",
-    description="API for predicting vector-borne disease risk based on climate data.",
     version="1.0.0"
 )
 
-# Load Model saat server pertama kali nyala (biar zero-latency pas di-hit)
+# Load Model
 try:
     model = joblib.load('ridge_model.pkl')
 except Exception as e:
     raise RuntimeError(f"Gagal memuat model: {str(e)}")
 
-# Skema Request Body (Validasi mirip TypeScript/Joi)
+# Mount folder 'frontend' agar file static seperti CSS/JS internal (jika ada) bisa terbaca
+# Pastikan folder frontend ada di direktori yang sama
+if os.path.isdir("frontend"):
+    app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+
 class WeatherPayload(BaseModel):
     temperature_celsius: float
     precipitation_mm: float
     extreme_weather_events: float
     heat_wave_days: float
 
+# Route untuk menampilkan index.html UI
 @app.get("/")
-def read_root():
-    return {"message": "System is Running. Hit /api/predict-risk for predictions."}
+def serve_ui():
+    return FileResponse("frontend/index.html")
 
+# Endpoint API Backend
 @app.post("/api/predict-risk")
 def predict_risk(data: WeatherPayload):
     try:
-        # Konversi payload ke format array 2D yang dipahami scikit-learn
         features = np.array([[
             data.temperature_celsius,
             data.precipitation_mm,
@@ -38,13 +44,9 @@ def predict_risk(data: WeatherPayload):
             data.heat_wave_days
         ]])
         
-        # Eksekusi prediksi
         raw_prediction = model.predict(features)[0]
-        
-        # Format hasil agar rapi dan tidak ada angka negatif
         final_score = max(0.0, round(float(raw_prediction), 2))
         
-        # Logika Status untuk memudahkan Frontend
         if final_score < 30:
             status = "Aman (Hijau)"
         elif final_score < 70:
@@ -52,15 +54,13 @@ def predict_risk(data: WeatherPayload):
         else:
             status = "Bahaya (Merah) - Butuh Mitigasi"
 
-        # Return format JSON
         return {
             "success": True,
             "data": {
-                "input_weather": data.dict(),
+                "input_weather": data.model_dump(),
                 "predicted_risk_score": final_score,
                 "warning_status": status
             }
         }
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
