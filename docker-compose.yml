@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  api-prediction:
+    build: .
+    container_name: vbd_ews_api
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - TZ=Asia/Jakarta
